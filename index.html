@@ -490,6 +490,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 }
 .co-btn:active { opacity: 0.8; }
 
+.tab-badge {
+  display: inline-block; margin-left: 5px; background: var(--err-l);
+  color: #fff; font-size: 10px; font-weight: 700; border-radius: 10px;
+  padding: 1px 6px; vertical-align: middle; line-height: 1.6;
+}
+
 /* ── TOAST ── */
 .toast {
   position: fixed; bottom: calc(24px + var(--safe-b)); left: 50%;
@@ -570,8 +576,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
     <!-- Mode tabs -->
     <div class="mode-tabs">
-      <button class="mode-tab active" id="tab-quiz"  onclick="setMode('quiz')">✏️ 타이핑 퀴즈</button>
-      <button class="mode-tab"        id="tab-flash" onclick="setMode('flash')">🃏 플래시카드</button>
+      <button class="mode-tab active" id="tab-quiz"    onclick="setMode('quiz')">✏️ 타이핑 퀴즈</button>
+      <button class="mode-tab"        id="tab-retry"   onclick="setMode('retry')">🔁 다시 풀기</button>
+      <button class="mode-tab"        id="tab-flash"   onclick="setMode('flash')">🃏 플래시카드</button>
       <button class="mode-tab"        id="tab-results" onclick="setMode('results')">📊 결과 보기</button>
     </div>
 
@@ -617,6 +624,53 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
               <div class="a-verse" id="a-verse"></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- RETRY MODE -->
+      <div id="mode-retry" style="display:none">
+        <div class="quiz-layout">
+          <div class="q-panel">
+            <div class="q-meta">
+              <span class="q-num" id="r-num"></span>
+              <span class="q-cat" id="r-cat"></span>
+            </div>
+            <div style="margin-bottom:6px">
+              <span id="r-prev-status" style="font-size:12px;padding:3px 10px;border-radius:20px;"></span>
+            </div>
+            <div class="q-text" id="r-text"></div>
+            <div class="input-group">
+              <input class="ans-input" id="retry-input"
+                type="text" placeholder="정답을 입력하세요..."
+                autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                onkeydown="onRetryKey(event)">
+              <button class="submit-btn" onclick="submitRetry()">확인 →</button>
+            </div>
+            <div class="action-row" id="retry-row-pre">
+              <button class="act-btn" onclick="showRetryHint()">💡 힌트</button>
+              <button class="act-btn" onclick="skipRetry()">건너뛰기</button>
+            </div>
+            <div class="action-row" id="retry-row-post" style="display:none">
+              <button class="act-btn act-next" onclick="nextRetry()">다음 문제 →</button>
+            </div>
+          </div>
+          <div class="a-panel" id="r-panel">
+            <div class="a-empty" id="r-empty">
+              <div class="a-empty-icon">🔁</div>
+              <div class="a-empty-text">오답·건너뜀 문제를 다시 풀어보세요</div>
+            </div>
+            <div class="a-result" id="r-result">
+              <div class="a-status" id="r-status"></div>
+              <div class="a-answer" id="r-answer"></div>
+              <div class="a-desc"   id="r-desc"></div>
+              <div class="a-verse"  id="r-verse"></div>
+            </div>
+          </div>
+        </div>
+        <div id="retry-empty-state" style="display:none;text-align:center;padding:60px 20px;color:var(--muted)">
+          <div style="font-size:48px;margin-bottom:16px">🎉</div>
+          <div style="font-size:16px;color:var(--gold-l);margin-bottom:8px">다시 풀 문제가 없어요!</div>
+          <div style="font-size:13px">오답이나 건너뜀 문제가 생기면 여기에 모입니다.</div>
         </div>
       </div>
 
@@ -843,15 +897,17 @@ function buildNav() {
 // ══════════════════════════════════════════════════════
 function setMode(m, skipSave) {
   mode = m;
-  ['quiz','flash','results'].forEach(id => {
+  ['quiz','retry','flash','results'].forEach(id => {
     const el = document.getElementById('mode-'+id);
     const tab = document.getElementById('tab-'+id);
     if (el)  el.style.display = id===m ? '' : 'none';
     if (tab) tab.className = 'mode-tab' + (id===m?' active':'');
   });
   if (m==='quiz')    renderQuiz();
+  if (m==='retry')   renderRetry();
   if (m==='flash')   renderFlash();
   if (m==='results') renderResults();
+  updateRetryBadge();
   if (!skipSave) save();
 }
 
@@ -961,7 +1017,25 @@ function showHint() {
   toast(`💡 힌트: ${a[0]}${'_'.repeat(Math.max(0,a.length-1))} (${a.length}자)`);
 }
 
-function onKey(e) { if(e.key==='Enter') submitAnswer(); }
+function onKey(e) {
+  if (e.key !== 'Enter') return;
+  const rowPost = document.getElementById('action-row-post');
+  if (rowPost && rowPost.style.display !== 'none') {
+    nextQuestion();
+  } else {
+    submitAnswer();
+  }
+}
+
+function onRetryKey(e) {
+  if (e.key !== 'Enter') return;
+  const rowPost = document.getElementById('retry-row-post');
+  if (rowPost && rowPost.style.display !== 'none') {
+    nextRetry();
+  } else {
+    submitRetry();
+  }
+}
 
 function showComplete() {
   const fc = getActive();
@@ -974,6 +1048,131 @@ function showComplete() {
   if (g('co-score')) g('co-score').textContent = pct+'점';
   if (g('co-sub'))   g('co-sub').textContent   = `정답 ${correct}개 · 오답 ${wrong}개 · 건너뜀 ${skip}개\n전체 ${fc.length}문제 완료!`;
   if (g('complete-overlay')) g('complete-overlay').classList.add('visible');
+  updateRetryBadge();
+}
+
+// ══════════════════════════════════════════════════════
+//  RETRY MODE — 오답 + 건너뜀 다시 풀기
+// ══════════════════════════════════════════════════════
+let retryIndex = 0;
+let retryResults = {}; // id -> 'correct'|'wrong'|'skip' (within retry session)
+
+function getRetryCards() {
+  return cards.filter(c => quizResults[c.id] === 'wrong' || quizResults[c.id] === 'skip');
+}
+
+function updateRetryBadge() {
+  const count = getRetryCards().length;
+  const tab = document.getElementById('tab-retry');
+  if (!tab) return;
+  const existing = tab.querySelector('.tab-badge');
+  if (existing) existing.remove();
+  if (count > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'tab-badge';
+    badge.textContent = count;
+    tab.appendChild(badge);
+  }
+}
+
+function renderRetry() {
+  const rc = getRetryCards();
+  const emptyEl = document.getElementById('retry-empty-state');
+  const layoutEl = document.querySelector('#mode-retry .quiz-layout');
+  const g = id => document.getElementById(id);
+
+  if (!rc.length) {
+    if (emptyEl)   emptyEl.style.display   = '';
+    if (layoutEl)  layoutEl.style.display  = 'none';
+    return;
+  }
+  if (emptyEl)   emptyEl.style.display   = 'none';
+  if (layoutEl)  layoutEl.style.display  = '';
+
+  if (retryIndex >= rc.length) retryIndex = 0;
+  const card = rc[retryIndex];
+
+  if (g('r-num'))  g('r-num').textContent  = `${retryIndex+1} / ${rc.length}`;
+  if (g('r-cat'))  g('r-cat').textContent  = card.cat;
+  if (g('r-text')) g('r-text').textContent = card.q;
+
+  // show previous result badge
+  const ps = g('r-prev-status');
+  if (ps) {
+    const prev = quizResults[card.id];
+    ps.textContent = prev === 'wrong' ? '✗ 이전에 틀린 문제' : '→ 이전에 건너뜀';
+    ps.style.background = prev === 'wrong' ? 'rgba(107,45,45,0.3)' : 'rgba(201,168,76,0.15)';
+    ps.style.color = prev === 'wrong' ? 'var(--err-l)' : 'var(--gold)';
+  }
+
+  const inp = g('retry-input');
+  if (inp) { inp.value = ''; inp.className = 'ans-input'; inp.disabled = false; inp.placeholder = '정답을 입력하세요...'; }
+  if (g('r-empty'))      g('r-empty').style.display       = '';
+  if (g('r-result'))     g('r-result').className          = 'a-result';
+  if (g('retry-row-pre'))  g('retry-row-pre').style.display  = '';
+  if (g('retry-row-post')) g('retry-row-post').style.display = 'none';
+  if (g('r-panel'))      g('r-panel').style.display       = window.innerWidth <= 768 ? 'none' : '';
+
+  setTimeout(()=>{ const i=g('retry-input'); if(i) i.focus(); }, 100);
+}
+
+function submitRetry() {
+  const rc = getRetryCards();
+  if (!rc.length) return;
+  const card = rc[retryIndex];
+  const g = id => document.getElementById(id);
+  const inp = g('retry-input');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) { inp.focus(); return; }
+
+  const ok = isCorrect(card, val);
+  // update main results so correct answers graduate out of retry
+  quizResults[card.id] = ok ? 'correct' : 'wrong';
+
+  inp.className = 'ans-input ' + (ok ? 'ok' : 'err');
+  inp.disabled = true;
+
+  if (g('r-panel'))  g('r-panel').style.display  = '';
+  if (g('r-empty'))  g('r-empty').style.display  = 'none';
+  const res = g('r-result'); if (res) res.className = 'a-result visible';
+  const st  = g('r-status'); if (st)  { st.textContent = ok ? '✓ 정답입니다!' : '✗ 틀렸습니다'; st.className = 'a-status ' + (ok?'ok':'err'); }
+  const aa  = g('r-answer'); if (aa) aa.textContent = card.a;
+  const ad  = g('r-desc');   if (ad) ad.textContent = card.desc || '';
+  const ve  = g('r-verse');  if (ve) { ve.textContent = card.verse||''; ve.style.display = card.verse?'':'none'; }
+  if (g('retry-row-pre'))  g('retry-row-pre').style.display  = 'none';
+  if (g('retry-row-post')) g('retry-row-post').style.display = '';
+
+  updateSidebarStats();
+  updateRetryBadge();
+  save();
+}
+
+function nextRetry() {
+  const rc = getRetryCards();
+  if (!rc.length) { renderRetry(); return; }
+  // if current card is now correct, list shrinks — stay at same index (next card slides in)
+  if (retryIndex >= rc.length) retryIndex = 0;
+  else retryIndex = retryIndex % rc.length;
+  renderRetry();
+}
+
+function skipRetry() {
+  const rc = getRetryCards();
+  if (!rc.length) return;
+  const card = rc[retryIndex];
+  quizResults[card.id] = 'skip';
+  retryIndex = (retryIndex + 1) % Math.max(1, getRetryCards().length);
+  updateRetryBadge();
+  save();
+  renderRetry();
+}
+
+function showRetryHint() {
+  const rc = getRetryCards();
+  if (!rc.length) return;
+  const a = rc[retryIndex].a;
+  toast(`💡 힌트: ${a[0]}${'_'.repeat(Math.max(0,a.length-1))} (${a.length}자)`);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1122,6 +1321,7 @@ function updateSidebarStats() {
   if (s('sp-fill'))    s('sp-fill').style.width     = pct+'%';
   if (s('sp-label'))   s('sp-label').textContent   = `${done} / ${fc.length} 완료`;
   if (s('sp-pct'))     s('sp-pct').textContent      = pct+'%';
+  updateRetryBadge();
 }
 
 // ══════════════════════════════════════════════════════
