@@ -1060,8 +1060,20 @@ function showComplete() {
   const g = id => document.getElementById(id);
   if (g('co-score')) g('co-score').textContent = pct+'점';
   if (g('co-sub'))   g('co-sub').textContent   = `정답 ${correct}개 · 오답 ${wrong}개 · 건너뜀 ${skip}개\n전체 ${fc.length}문제 완료!`;
+
+  // 다시 풀기 버튼: 오답 또는 건너뜀이 있을 때만 표시
+  const retryWrap = g('co-retry-wrap');
+  if (retryWrap) retryWrap.style.display = (wrong + skip > 0) ? '' : 'none';
+
   if (g('complete-overlay')) g('complete-overlay').classList.add('visible');
   updateRetryBadge();
+}
+
+function startRetryFromComplete() {
+  const g = id => document.getElementById(id);
+  if (g('complete-overlay')) g('complete-overlay').classList.remove('visible');
+  retryIndex = 0;
+  setMode('retry');
 }
 
 // ══════════════════════════════════════════════════════
