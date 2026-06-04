@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="성경퀴즈">
+<meta name="theme-color" content="#0d1117">
+<title>성경퀴즈</title>
+<style>
+/* 폰트: 시스템 폰트 우선, Google Fonts는 비동기 로드 */
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+</style>
+<style>
+/* ── RESET & ROOT ── */
+:root {
+  --bg:       #0d1117;
+  --surf1:    #161b22;
+  --surf2:    #1e2530;
+  --surf3:    #242d3a;
+  --gold:     #c9a84c;
+  --gold-l:   #e8c97a;
+  --text:     #e8e0d0;
+  --muted:    #6b6560;
+  --border:   rgba(201,168,76,0.18);
+  --ok:       #2d6a4f;
+  --ok-l:     #52b788;
+  --err:      #6b2d2d;
+  --err-l:    #e07070;
+  --r:        14px;
+  --sidebar:  280px;
+  --safe-t:   env(safe-area-inset-top, 0px);
+  --safe-b:   env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif; overflow: hidden; }
+
+/* ── APP SHELL ── */
+.app {
+  display: flex;
+  height: 100dvh;
+  padding-top: var(--safe-t);
+  padding-bottom: var(--safe-b);
+}
+
+/* ══════════════════════════════
+   SIDEBAR
+══════════════════════════════ */
+.sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  background: var(--surf1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Mobile: sidebar hidden by default */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -100%; top: 0; bottom: 0; z-index: 100;
+    width: 280px; transition: left 0.3s ease; padding-top: var(--safe-t); }
+  .sidebar.open { left: 0; }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 99; }
+  .overlay.visible { display: block; }
+  --sidebar: 0px;
+
+  /* ── full mobile layout ── */
+  html, body { overflow: hidden; }
+  .app { flex-direction: column; height: 100dvh; }
+  .topbar { display: flex; padding: 10px 14px; padding-top: calc(10px + var(--safe-t)); }
+
+  /* mode tabs */
+  .mode-tabs { padding: 0; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+  .mode-tabs::-webkit-scrollbar { display: none; }
+  .mode-tab { padding: 10px 14px; font-size: 12px; white-space: nowrap; }
+
+  /* scrollable content */
+  .content { padding: 12px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+  /* quiz: single column */
+  .quiz-layout { grid-template-columns: 1fr; gap: 12px; }
+  .q-panel { padding: 16px; gap: 12px; }
+  .q-text  { font-size: 15px; line-height: 1.7; }
+
+  /* hide empty answer placeholder — only show after submit */
+  .a-panel { padding: 16px; min-height: unset; gap: 10px; }
+  .a-empty { display: none; }
+  .a-answer { font-size: 22px; }
+  .a-desc   { font-size: 12px; }
+  .a-verse  { font-size: 11px; }
+
+  /* input: 16px stops iOS from zooming in */
+  .ans-input  { font-size: 16px; padding: 12px 14px; }
+  .submit-btn { padding: 12px 14px; font-size: 13px; }
+  .input-group { gap: 8px; }
+  .act-btn { padding: 11px 8px; font-size: 12px; }
+
+  /* flashcard */
+  .flash-wrap { max-width: 100%; }
+  .card-scene { height: 230px; margin-bottom: 12px; }
+  .card-face  { padding: 20px 16px; }
+  .card-q     { font-size: 14px; line-height: 1.65; }
+  .card-a     { font-size: 22px; }
+  .card-a-desc  { font-size: 11px; }
+  .card-a-verse { font-size: 10px; }
+  .card-hint    { font-size: 11px; margin-top: 8px; }
+  .flash-controls { gap: 8px; margin-bottom: 10px; }
+  .fc-btn { padding: 11px 8px; font-size: 12px; }
+  .flash-stats { gap: 8px; }
+  .fs-box { padding: 10px 6px; }
+  .fs-n { font-size: 20px; }
+
+  /* results */
+  .results-grid { grid-template-columns: 1fr; gap: 8px; }
+  .r-card { padding: 12px; }
+  .r-card-q { font-size: 11px; }
+  .r-card-a { font-size: 13px; }
+
+  /* complete overlay */
+  .co-title { font-size: 24px; }
+  .co-score { font-size: 52px; }
+  .co-sub   { font-size: 13px; }
+  .co-btn   { padding: 14px 40px; }
+
+  /* toast */
+  .toast { bottom: calc(16px + var(--safe-b)); }
+}
+
+.sidebar-header {
+  padding: 22px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-logo {
+  font-family: 'Nanum Myeongjo', serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--gold-l);
+  letter-spacing: 1px;
+}
+
+/* Stats cards */
+.sidebar-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 16px;
+  flex-shrink: 0;
+}
+.s-stat {
+  background: var(--surf2);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+.s-stat-n { font-size: 24px; font-weight: 700; }
+.s-stat-l { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.s-ok  .s-stat-n { color: var(--ok-l); }
+.s-err .s-stat-n { color: var(--err-l); }
+.s-rem .s-stat-n { color: var(--gold); }
+.s-tot .s-stat-n { color: var(--text); }
+
+/* Progress */
+.sidebar-progress { padding: 0 16px 14px; flex-shrink: 0; }
+.sp-label { display: flex; justify-content: space-between; font-size: 11px;
+  color: var(--muted); margin-bottom: 6px; }
+.sp-bar { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.sp-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-l));
+  border-radius: 2px; transition: width 0.4s ease; }
+
+/* Category nav */
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 10px; scrollbar-width: none; }
+.sidebar-nav::-webkit-scrollbar { display: none; }
+.nav-section-label {
+  font-size: 10px; letter-spacing: 2px; color: var(--muted);
+  padding: 8px 8px 6px; text-transform: uppercase;
+}
+.nav-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  font-size: 13px; color: var(--muted); transition: all 0.15s; margin-bottom: 2px;
+}
+.nav-item:hover { background: var(--surf2); color: var(--text); }
+.nav-item.active { background: rgba(201,168,76,0.12); color: var(--gold-l); font-weight: 600; }
+.nav-badge {
+  font-size: 10px; background: var(--surf3); border-radius: 20px;
+  padding: 2px 8px; color: var(--muted);
+}
+.nav-item.active .nav-badge { background: rgba(201,168,76,0.2); color: var(--gold); }
+
+/* Sidebar actions */
+.sidebar-actions { padding: 12px 16px 16px; border-top: 1px solid var(--border);
+  display: flex; gap: 8px; flex-shrink: 0; }
+.s-action {
+  flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px; cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.s-action:hover { border-color: var(--gold); color: var(--gold); }
+.s-action:active { opacity: 0.6; }
+
+/* ══════════════════════════════
+   MAIN PANEL
+══════════════════════════════ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Top bar (mobile only visible) */
+.topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surf1);
+}
+@media (max-width: 768px) { .topbar { display: flex; } }
+.topbar-title { font-family: 'Nanum Myeongjo', serif; font-size: 16px;
+  font-weight: 800; color: var(--gold-l); }
+.menu-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+  width: 36px; height: 36px; color: var(--muted); font-size: 16px; cursor: pointer; }
+
+/* Mode tabs */
+.mode-tabs {
+  display: flex; gap: 0; padding: 14px 24px 0; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.mode-tab {
+  padding: 10px 20px; font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px; color: var(--muted); cursor: pointer; border: none;
+  background: none; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: all 0.18s; font-weight: 500;
+}
+.mode-tab.active { color: var(--gold-l); border-bottom-color: var(--gold); font-weight: 700; }
+.mode-tab:hover:not(.active) { color: var(--text); }
+
+/* ── CONTENT AREA ── */
+.content { flex: 1; overflow-y: auto; padding: 24px; scrollbar-width: thin;
+  scrollbar-color: var(--surf3) transparent; }
+.content::-webkit-scrollbar { width: 4px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+.content::-webkit-scrollbar-thumb { background: var(--surf3); border-radius: 2px; }
+
+/* ══════════════════════════════
+   QUIZ MODE
+══════════════════════════════ */
+.quiz-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+@media (max-width: 900px) { .quiz-layout { grid-template-columns: 1fr; } }
+
+/* Question panel */
+.q-panel {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.q-meta { display: flex; justify-content: space-between; align-items: center; }
+.q-num { font-size: 12px; color: var(--muted); }
+.q-cat { font-size: 11px; color: var(--gold); background: rgba(201,168,76,0.1);
+  padding: 3px 12px; border-radius: 20px; }
+.q-text {
+  font-family: 'Nanum Myeongjo', serif;
+  font-size: 18px; font-weight: 700; line-height: 1.75; color: var(--text);
+  white-space: pre-wrap; flex: 1;
+}
+
+/* Input */
+.input-group { display: flex; gap: 10px; }
+.ans-input {
+  flex: 1; background: var(--surf2); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 13px 16px; color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif; font-size: 15px; outline: none;
+  transition: border-color 0.2s; -webkit-appearance: none;
+}
+.ans-input::placeholder { color: var(--muted); }
+.ans-input:focus { border-color: var(--gold); }
+.ans-input.ok  { border-color: var(--ok-l);  background: rgba(45,106,79,0.12); }
+.ans-input.err { border-color: var(--err-l); background: rgba(107,45,45,0.12); }
+
+.submit-btn {
+  padding: 13px 20px; border-radius: 10px; border: none;
+  background: var(--gold); color: #0d1117; font-family: 'Noto Sans KR', sans-serif;
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.submit-btn:active { opacity: 0.75; }
+
+/* Action row */
+.action-row { display: flex; gap: 8px; }
+.act-btn {
+  flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px; cursor: pointer; transition: all 0.15s;
+}
+.act-btn:hover { border-color: var(--gold); color: var(--gold); }
+.act-btn:active { opacity: 0.6; }
+.act-next {
+  background: var(--gold); border-color: var(--gold); color: #0d1117;
+  font-weight: 700; flex: 2;
+}
+.act-next:hover { background: var(--gold-l); border-color: var(--gold-l); color: #0d1117; }
+
+/* Answer panel */
+.a-panel {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 200px;
+}
+.a-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; color: var(--muted); gap: 10px;
+}
+.a-empty-icon { font-size: 40px; opacity: 0.3; }
+.a-empty-text { font-size: 13px; }
+
+.a-result { display: none; animation: fadeUp 0.25s ease; }
+.a-result.visible { display: block; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.a-status {
+  font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.a-status.ok  { color: var(--ok-l); }
+.a-status.err { color: var(--err-l); }
+.a-answer {
+  font-family: 'Nanum Myeongjo', serif;
+  font-size: 26px; font-weight: 800; color: var(--gold-l); margin-bottom: 10px;
+}
+.a-desc { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.6; }
+.a-verse {
+  font-family: 'Nanum Myeongjo', serif; font-size: 12px;
+  color: rgba(232,201,122,0.5); font-style: italic; line-height: 1.85;
+  border-left: 2px solid rgba(201,168,76,0.25); padding-left: 12px;
+}
+
+/* ══════════════════════════════
+   FLASHCARD MODE
+══════════════════════════════ */
+.flash-wrap {
+  max-width: 700px;
+  margin: 0 auto;
+}
+.card-scene {
+  width: 100%; height: 300px; perspective: 1200px;
+  cursor: pointer; margin-bottom: 20px;
+}
+.card-inner {
+  width: 100%; height: 100%; position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
+}
+.card-inner.flipped { transform: rotateY(180deg); }
+.card-face {
+  position: absolute; inset: 0; border-radius: var(--r);
+  border: 1px solid var(--border); backface-visibility: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 32px 40px; text-align: center;
+}
+.card-front {
+  background: var(--surf1);
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.07) 0%, transparent 60%);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+}
+.card-back {
+  background: var(--surf2);
+  background-image: radial-gradient(ellipse at 50% 100%, rgba(74,127,165,0.1) 0%, transparent 60%);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+  transform: rotateY(180deg);
+}
+.card-label { font-size: 11px; letter-spacing: 3px; color: var(--muted);
+  margin-bottom: 16px; }
+.card-num { position: absolute; top: 18px; left: 22px; font-size: 11px; color: var(--muted); }
+.card-cat-badge { position: absolute; top: 18px; right: 22px; font-size: 10px;
+  color: var(--gold); background: rgba(201,168,76,0.1); padding: 3px 12px; border-radius: 20px; }
+.card-q { font-family: 'Nanum Myeongjo', serif; font-size: 18px; font-weight: 700;
+  line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+.card-hint { margin-top: 14px; font-size: 12px; color: var(--muted); }
+.card-a { font-family: 'Nanum Myeongjo', serif; font-size: 28px; font-weight: 800;
+  color: var(--gold-l); margin-bottom: 10px; }
+.card-a-desc { font-size: 12px; color: var(--muted); max-width: 480px; line-height: 1.6; }
+.card-a-verse { margin-top: 12px; padding-left: 12px; border-left: 2px solid rgba(201,168,76,0.3);
+  font-family: 'Nanum Myeongjo', serif; font-size: 11px; color: rgba(232,201,122,0.5);
+  font-style: italic; line-height: 1.8; max-width: 480px; text-align: left; }
+
+.flash-controls { display: flex; gap: 12px; margin-bottom: 16px; }
+.fc-btn {
+  flex: 1; padding: 13px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surf1); color: var(--muted); font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500;
+}
+.fc-btn:hover { border-color: var(--gold); color: var(--text); }
+.fc-btn.primary { background: var(--gold); border-color: var(--gold);
+  color: #0d1117; font-weight: 700; flex: 2; }
+.fc-btn.primary:hover { background: var(--gold-l); }
+.fc-btn.know { border-color: rgba(82,183,136,0.4); color: var(--ok-l); }
+.fc-btn.know:hover { background: rgba(45,106,79,0.15); }
+.fc-btn.dunno { border-color: rgba(224,112,112,0.4); color: var(--err-l); }
+.fc-btn.dunno:hover { background: rgba(107,45,45,0.15); }
+.fc-btn:active { opacity: 0.7; }
+
+.flash-stats { display: flex; gap: 10px; }
+.fs-box { flex: 1; background: var(--surf1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px; text-align: center; }
+.fs-n { font-size: 22px; font-weight: 700; margin-bottom: 2px; }
+.fs-l { font-size: 10px; color: var(--muted); }
+.fs-ok  .fs-n { color: var(--ok-l); }
+.fs-err .fs-n { color: var(--err-l); }
+.fs-rem .fs-n { color: var(--gold); }
+
+/* ══════════════════════════════
+   RESULTS MODE
+══════════════════════════════ */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.r-card {
+  background: var(--surf1); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 16px; position: relative; overflow: hidden;
+}
+.r-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 3px 0 0 3px;
+}
+.r-card.ok::before { background: var(--ok-l); }
+.r-card.err::before { background: var(--err-l); }
+.r-card.skip::before { background: var(--gold); }
+.r-card.none::before { background: var(--surf3); }
+.r-card-meta { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.r-card-num { font-size: 11px; color: var(--muted); }
+.r-card-status { font-size: 10px; font-weight: 700; }
+.r-card.ok   .r-card-status { color: var(--ok-l); }
+.r-card.err  .r-card-status { color: var(--err-l); }
+.r-card.skip .r-card-status { color: var(--gold); }
+.r-card.none .r-card-status { color: var(--muted); }
+.r-card-q { font-size: 12px; color: var(--muted); margin-bottom: 6px;
+  line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.r-card-a { font-family: 'Nanum Myeongjo', serif; font-size: 15px;
+  font-weight: 700; color: var(--gold-l); }
+
+/* ══════════════════════════════
+   COMPLETE OVERLAY
+══════════════════════════════ */
+.complete-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(13,17,23,0.92);
+  z-index: 200; align-items: center; justify-content: center;
+  flex-direction: column; text-align: center; gap: 14px;
+  backdrop-filter: blur(8px);
+}
+.complete-overlay.visible { display: flex; animation: fadeUp 0.3s ease; }
+.co-icon { font-size: 70px; }
+.co-title { font-family: 'Nanum Myeongjo', serif; font-size: 32px; color: var(--gold-l); }
+.co-score { font-size: 64px; font-weight: 800; color: var(--gold-l); }
+.co-sub { font-size: 15px; color: var(--muted); line-height: 1.8; }
+.co-btn {
+  margin-top: 8px; padding: 16px 48px; border-radius: 12px; border: none;
+  background: var(--gold); color: #0d1117; font-family: 'Noto Sans KR', sans-serif;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.co-btn:active { opacity: 0.8; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: calc(24px + var(--safe-b)); left: 50%;
+  transform: translateX(-50%); background: rgba(30,37,48,0.95);
+  border: 1px solid var(--border); color: var(--text);
+  padding: 10px 22px; border-radius: 24px; font-size: 13px;
+  opacity: 0; transition: opacity 0.35s; pointer-events: none;
+  white-space: nowrap; z-index: 300;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.toast.show { opacity: 1; }
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">성경퀴즈</div>
+    </div>
+
+    <div class="sidebar-stats">
+      <div class="s-stat s-ok">
+        <div class="s-stat-n" id="ss-correct">0</div>
+        <div class="s-stat-l">정답</div>
+      </div>
+      <div class="s-stat s-err">
+        <div class="s-stat-n" id="ss-wrong">0</div>
+        <div class="s-stat-l">오답</div>
+      </div>
+      <div class="s-stat s-rem">
+        <div class="s-stat-n" id="ss-remain">0</div>
+        <div class="s-stat-l">남은 문제</div>
+      </div>
+      <div class="s-stat s-tot">
+        <div class="s-stat-n" id="ss-total">63</div>
+        <div class="s-stat-l">전체</div>
+      </div>
+    </div>
+
+    <div class="sidebar-progress">
+      <div class="sp-label">
+        <span id="sp-label">진행률</span>
+        <span id="sp-pct">0%</span>
+      </div>
+      <div class="sp-bar"><div class="sp-fill" id="sp-fill"></div></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">카테고리</div>
+      <div id="navItems"></div>
+    </nav>
+
+    <div class="sidebar-actions">
+      <button class="s-action" onclick="shuffleCards()">🔀 섞기</button>
+      <button class="s-action" onclick="resetAll()">↺ 초기화</button>
+    </div>
+  </aside>
+
+  <!-- Mobile overlay -->
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+
+    <!-- Mobile topbar -->
+    <div class="topbar">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title">성경퀴즈</div>
+      <div style="width:36px"></div>
+    </div>
+
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-quiz"  onclick="setMode('quiz')">✏️ 타이핑 퀴즈</button>
+      <button class="mode-tab"        id="tab-flash" onclick="setMode('flash')">🃏 플래시카드</button>
+      <button class="mode-tab"        id="tab-results" onclick="setMode('results')">📊 결과 보기</button>
+    </div>
+
+    <!-- ── CONTENT ── -->
+    <div class="content" id="content">
+
+      <!-- QUIZ MODE -->
+      <div id="mode-quiz">
+        <div class="quiz-layout">
+          <!-- Question -->
+          <div class="q-panel">
+            <div class="q-meta">
+              <span class="q-num" id="q-num"></span>
+              <span class="q-cat" id="q-cat"></span>
+            </div>
+            <div class="q-text" id="q-text"></div>
+            <div class="input-group">
+              <input class="ans-input" id="ans-input"
+                type="text" placeholder="정답을 입력하세요..."
+                autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                onkeydown="onKey(event)">
+              <button class="submit-btn" onclick="submitAnswer()">확인 →</button>
+            </div>
+            <div class="action-row" id="action-row-pre">
+              <button class="act-btn" onclick="showHint()">💡 힌트</button>
+              <button class="act-btn" onclick="skipQuestion()">건너뛰기</button>
+            </div>
+            <div class="action-row" id="action-row-post" style="display:none">
+              <button class="act-btn act-next" onclick="nextQuestion()">다음 문제 →</button>
+            </div>
+          </div>
+
+          <!-- Answer reveal -->
+          <div class="a-panel" id="a-panel">
+            <div class="a-empty" id="a-empty">
+              <div class="a-empty-icon">✏️</div>
+              <div class="a-empty-text">정답을 입력하면 여기에 결과가 나옵니다</div>
+            </div>
+            <div class="a-result" id="a-result">
+              <div class="a-status" id="a-status"></div>
+              <div class="a-answer" id="a-answer"></div>
+              <div class="a-desc" id="a-desc"></div>
+              <div class="a-verse" id="a-verse"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FLASH MODE -->
+      <div id="mode-flash" style="display:none">
+        <div class="flash-wrap">
+          <div class="card-scene" onclick="flipCard()">
+            <div class="card-inner" id="card-inner">
+              <div class="card-face card-front">
+                <div class="card-num" id="f-num"></div>
+                <div class="card-cat-badge" id="f-cat"></div>
+                <div class="card-label">문 제</div>
+                <div class="card-q" id="f-q"></div>
+                <div class="card-hint">탭하여 정답 확인</div>
+              </div>
+              <div class="card-face card-back">
+                <div class="card-label">정 답</div>
+                <div class="card-a" id="f-a"></div>
+                <div class="card-a-desc" id="f-desc"></div>
+                <div class="card-a-verse" id="f-verse"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flash-controls" id="flash-front-ctrl">
+            <button class="fc-btn" onclick="flashPrev()">◀ 이전</button>
+            <button class="fc-btn primary" onclick="flipCard()">정답 보기</button>
+            <button class="fc-btn" onclick="flashNext()">다음 ▶</button>
+          </div>
+          <div class="flash-controls" id="flash-back-ctrl" style="display:none">
+            <button class="fc-btn dunno" onclick="markFlash(false)">✗ 모름</button>
+            <button class="fc-btn know"  onclick="markFlash(true)">✓ 암기완료</button>
+          </div>
+
+          <div class="flash-stats">
+            <div class="fs-box fs-rem"><div class="fs-n" id="fs-rem">0</div><div class="fs-l">남은 카드</div></div>
+            <div class="fs-box fs-ok"> <div class="fs-n" id="fs-ok">0</div> <div class="fs-l">암기완료</div></div>
+            <div class="fs-box fs-err"><div class="fs-n" id="fs-err">0</div><div class="fs-l">다시 보기</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTS MODE -->
+      <div id="mode-results" style="display:none">
+        <div class="results-grid" id="results-grid"></div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /app -->
+
+<!-- Complete overlay -->
+<div class="complete-overlay" id="complete-overlay">
+  <div class="co-icon">🎉</div>
+  <div class="co-title">퀴즈 완료!</div>
+  <div class="co-score" id="co-score"></div>
+  <div class="co-sub" id="co-sub"></div>
+  <button class="co-btn" onclick="resetAll()">↺ 다시 시작</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CARDS DATA
+// ══════════════════════════════════════════════════════
+const ALL_CARDS = [
+  { id:1,  cat:"성경지식", q:"창 1:2 '땅이 혼돈하고 공허하며 흑암이 깊음 위에 있고 ( )은 수면에 운행하시니라.' 괄호 안에 들어가는 말은?", a:"하나님의 영", alt:["성령","하나님의 영(성령)"], desc:"창세기 1:2", verse:"\"땅이 혼돈하고 공허하며 흑암이 깊음 위에 있고 하나님의 영은 수면에 운행하시니라\" (창 1:2)" },
+  { id:2,  cat:"성경지식", q:"에덴동산에서 갈라져 나와 네 근원이 된 강의 이름이 아닌 것은?\n(1)비손 (2)기혼 (3)유브라데 (4)힛데겔 (5)나일", a:"나일", alt:["5","(5)","(5) 나일"], desc:"에덴의 네 강: 비손·기혼·힛데겔·유브라데", verse:"\"강이 에덴에서 흘러 나와 동산을 적시고 거기서부터 갈라져 네 근원이 되었으니\" (창 2:10)" },
+  { id:3,  cat:"성경지식", q:"하나님께서 아벨 대신에 아담에게 주신 아들의 이름은?", a:"셋", alt:["Seth"], desc:"창세기 4:25", verse:"\"하나님이 내게 가인이 죽인 아벨 대신에 다른 씨를 주셨다 함이라\" (창 4:25)" },
+  { id:4,  cat:"성경지식", q:"노아의 세 아들의 이름은?", a:"셈, 함, 야벳", alt:["셈 함 야벳","셈함야벳"], desc:"창세기 5:32", verse:"\"노아는 오백 세 된 후에 셈과 함과 야벳을 낳았더라\" (창 5:32)" },
+  { id:5,  cat:"성경지식", q:"야곱이 잠에서 깨어나 돌단을 쌓았던 벧엘의 본 이름은 무엇이었습니까?", a:"루스", alt:["Luz"], desc:"창세기 28:19", verse:"\"그 곳 이름을 벧엘이라 하였더라 이 성의 옛 이름은 루스더라\" (창 28:19)" },
+  { id:6,  cat:"성경지식", q:"야곱의 아내 레아가 출산하고 '내가 이제는 여호와를 찬송하리로다'라는 의미로 지은 아들의 이름은?\n(1)르우벤 (2)시므온 (3)레위 (4)유다", a:"유다", alt:["4","(4)"], desc:"창세기 29:35", verse:"\"이로 말미암아 그가 그의 이름을 유다라 하였고\" (창 29:35)" },
+  { id:7,  cat:"성경지식", q:"'그가 사람 중에 들나귀 같이 되리니 그 손이 모든 사람을 치겠고...' 이것은 누구를 가리켜 한 말입니까?", a:"이스마엘", desc:"창세기 16:12", verse:"\"그가 사람 중에 들나귀 같이 되리니 그의 손이 모든 사람을 치겠고\" (창 16:12)" },
+  { id:8,  cat:"성경지식", q:"'브엘세바'라는 이름의 뜻은?\n(1)감찰하시는 하나님 (2)하나님이 들으심 (3)맹세의 우물 (4)억울함을 푸심", a:"맹세의 우물", alt:["3","(3)"], desc:"창세기 21:31", verse:"\"이는 두 사람이 거기서 서로 맹세하였음이더라\" (창 21:31)" },
+  { id:9,  cat:"성경지식", q:"'아브라함이 그 땅 이름을 여호와 이레라 하였으므로...' '그 땅'은 어디를 말합니까?\n(1)호렙산 (2)시날평지 (3)헤브론 (4)모리아", a:"모리아", alt:["4","(4)"], desc:"창세기 22:14", verse:"\"아브라함이 그 땅 이름을 여호와 이레라 하였으므로\" (창 22:14)" },
+  { id:10, cat:"성경지식", q:"가나안 땅을 정탐하고 돌아온 열두 사람 중 긍정적으로 보고한 두 사람은 누구입니까?", a:"갈렙과 여호수아", alt:["여호수아와 갈렙","갈렙, 여호수아","여호수아, 갈렙"], desc:"민수기 14:6~9", verse:"\"눈의 아들 여호수아와 여분네의 아들 갈렙이 자기들의 옷을 찢고\" (민 14:6)" },
+  { id:11, cat:"성경지식", q:"'내가 타국에서 객이 되었음이라'는 의미를 가진 이름은?\n(1)게르솜 (2)이스마엘 (3)납달리 (4)므낫세", a:"게르솜", alt:["1","(1)"], desc:"출애굽기 2:22", verse:"\"내가 이방 땅에서 나그네가 되었다 하였더라\" (출 2:22)" },
+  { id:12, cat:"성경지식", q:"'여호와는 네게 복을 주시고 너를 지키시기를 원하며...' 이 성구는 성경의 어느 책 몇 장에 나옵니까?", a:"민수기 6장", alt:["민 6장","민수기 6"], desc:"민수기 6:24~26, 아론의 축복 기도", verse:"\"여호와는 네게 복을 주시고 너를 지키시기를 원하며\" (민 6:24)" },
+  { id:13, cat:"성경지식", q:"'모세가 나를 보내던 날과 같이 오늘날 오히려 강건하니... 이 산지를 내게 주소서' 이것은 누구의 말입니까?", a:"갈렙", desc:"여호수아 14:11~12", verse:"\"여호와께서 말씀하신 이 산지를 지금 내게 주소서\" (수 14:12)" },
+  { id:14, cat:"성경지식", q:"'이는 네 생명의 회복자며 일곱 아들보다 귀한 자부가 낳은 자로다.' 이 구절에 등장하는 두 여인의 이름은?", a:"나오미와 룻", alt:["나오미, 룻","룻과 나오미","룻, 나오미"], desc:"룻기 4:15", verse:"\"곧 너를 사랑하며 일곱 아들보다 귀한 네 며느리가 낳은 자로다\" (룻 4:15)" },
+  { id:15, cat:"성경지식", q:"'단에서부터 브엘세바까지의 온 이스라엘이 [그]는 여호와의 선지자로 세우심을 입은 줄을 알았더라' 이것은 누구를 가리킵니까?", a:"사무엘", desc:"사무엘상 3:19~20", verse:"\"여호와께서 그와 함께 계셔서 그의 말이 하나도 땅에 떨어지지 않게 하시니\" (삼상 3:19)" },
+  { id:16, cat:"성경지식", q:"'내가 네게 지혜롭고 총명한 마음을 주노니 너의 전에도 너와 같은 자가 없었거니와...' '너'는 누구입니까?", a:"솔로몬", desc:"열왕기상 3:12", verse:"\"내가 네 말대로 하여 네게 지혜롭고 총명한 마음을 주노니\" (왕상 3:12)" },
+  { id:17, cat:"성경지식", q:"솔로몬왕 이후 남왕국의 초대 왕은 누구입니까?\n(1)사울 (2)르호보암 (3)여로보암 (4)압살롬", a:"르호보암", alt:["2","(2)"], desc:"열왕기상 12장", verse:"\"유다 지파 외에는 오직 르호보암을 따르는 자가 없었더라\" (왕상 12:20)" },
+  { id:18, cat:"성경지식", q:"'너희가 어느 때까지 두 사이에서 머뭇머뭇 하려느냐 여호와가 만일 하나님이면 그를 좇고...' 어느 선지자의 말입니까?", a:"엘리야", desc:"열왕기상 18:21, 갈멜산", verse:"\"여호와가 만일 하나님이면 그를 따르고 바알이 만일 하나님이면 그를 따를지니라\" (왕상 18:21)" },
+  { id:19, cat:"성경지식", q:"이세벨이 아합 왕을 위해 거짓 증인을 세워 죽인 포도원 주인의 이름은?\n(1)시므리 (2)벤하닷 (3)느봇 (4)나봇", a:"나봇", alt:["4","(4)"], desc:"열왕기상 21장", verse:"\"이스르엘 사람 나봇이 이스르엘에 포도원이 있어\" (왕상 21:1)" },
+  { id:20, cat:"성경지식", q:"'당신의 영감이 갑절이나 내게 있기를 구하나이다.' 하였던 사람은 누구입니까?", a:"엘리사", desc:"열왕기하 2:9", verse:"\"당신의 성령이 하시는 역사가 갑절이나 내게 있게 하소서\" (왕하 2:9)" },
+  { id:21, cat:"성경지식", q:"나아만이 문둥병을 고침 받기 위해 엘리사의 말대로 몸을 담갔던 강은?", a:"요단강", alt:["요단 강"], desc:"열왕기하 5:10", verse:"\"요단 강에 몸을 일곱 번 씻으라 네 살이 회복되어 깨끗하리라\" (왕하 5:10)" },
+  { id:22, cat:"성경지식", q:"기도 응답을 받고 생명이 십오년 더 연장되었던 왕의 이름은?", a:"히스기야", desc:"열왕기하 20:6", verse:"\"내가 네 날을 십오 년을 더할 것이며\" (왕하 20:6)" },
+  { id:23, cat:"성경지식", q:"여호와의 전을 수리하는 중 율법책을 발견하여 종교개혁을 일으켰던 왕은 누구입니까?\n(1)히스기야 (2)요시야 (3)요아스 (4)시드기야", a:"요시야", alt:["2","(2)"], desc:"열왕기하 22장", verse:"\"내가 여호와의 성전에서 율법책을 발견하였노라\" (왕하 22:8)" },
+  { id:24, cat:"성경지식", q:"인구조사로 범죄한 다윗에게 주어진 세 가지 징계 중 속하지 않은 것은?\n(1)삼년의 기근 (2)석달동안의 패배 (3)사흘동안의 온역 (4)사십일의 홍수", a:"사십일의 홍수", alt:["홍수","4","(4)"], desc:"사무엘하 24:12~13", verse:"\"기근이냐 도망이냐 전염병이냐\" (삼하 24:13)" },
+  { id:25, cat:"성경지식", q:"바벨론 포로 이스라엘 백성에게 예루살렘 귀환을 명령한 바사 왕은 누구입니까?", a:"고레스", alt:["구로스","고레스(구로스)"], desc:"에스라 1:1~2", verse:"\"바사 왕 고레스의 마음을 감동시키시매\" (스 1:1)" },
+  { id:26, cat:"성경지식", q:"바벨론에서 돌아온 백성이 성전을 재건할 때 활동하지 않은 사람은?\n(1)에스라 (2)호세아 (3)학개 (4)스가랴", a:"호세아", alt:["2","(2)"], desc:"호세아는 북왕국 시대 선지자", verse:"\"선지자 학개와 스가랴가 유다 사람들에게 예언하매\" (스 5:1)" },
+  { id:27, cat:"성경지식", q:"'나도 나의 시녀로 더불어 이렇게 금식한 후에 규례를 어기고 왕에게 나아가리니 죽으면 죽으리이다.' 에스더 몇 장입니까?", a:"에스더 4장", alt:["4장","에스더 4","4"], desc:"에스더 4:16", verse:"\"죽으면 죽으리이다\" (에 4:16)" },
+  { id:28, cat:"성경지식", q:"에스더를 통해 유대백성이 구원을 얻은 것을 기념하여 지키는 절기의 이름은?", a:"부림절", desc:"에스더 9:26~28", verse:"\"이 두 날을 부림이라 하였으며\" (에 9:26)" },
+  { id:29, cat:"성경지식", q:"'저는 시냇가에 심은 나무가 시절을 좇아 과실을 맺으며...' 시편 몇 편입니까?", a:"시편 1편", alt:["1편","시편 1","1"], desc:"시편 1:3", verse:"\"그가 하는 모든 일이 다 형통하리로다\" (시 1:3)" },
+  { id:30, cat:"성경지식", q:"'내가 사망의 음침한 골짜기로 다닐찌라도 해를 두려워하지 않을 것은...' 시편 몇 편입니까?", a:"시편 23편", alt:["23편","시편 23","23"], desc:"시편 23:4", verse:"\"주께서 나와 함께 하심이라 주의 지팡이와 막대기가 나를 안위하시나이다\" (시 23:4)" },
+  { id:31, cat:"성경지식", q:"'너는 ( )에 그를 인정하라 그리하면 네 길을 지도하시리라.' 괄호 안에 들어가는 단어는?", a:"범사", desc:"잠언 3:6", verse:"\"너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라\" (잠 3:6)" },
+  { id:32, cat:"성경지식", q:"'하나님이 모든 것을 지으시되 때를 따라 아름답게 하셨고 또 사람에게 영원을 사모하는 마음을 주셨느니라...' 어느 책입니까?", a:"전도서", desc:"전도서 3:11", verse:"\"하나님이 모든 것을 지으시되 때를 따라 아름답게 하셨고\" (전 3:11)" },
+  { id:33, cat:"성경지식", q:"성전에 들어가 하나님의 임재를 경험하고 '나를 보내소서'라고 고백을 한 사람은 누구입니까?", a:"이사야", desc:"이사야 6:8", verse:"\"내가 여기 있나이다 나를 보내소서\" (사 6:8)" },
+  { id:34, cat:"성경지식", q:"아래 구절 중 이사야서에 속한 말씀이 아닌 것은?\n(1)상하고 통회하는 마음을 멸시치 아니하시리이다\n(2)너희 죄가 주홍 같을찌라도 눈과 같이 희어질 것이요\n(3)나 곧 나는 네 죄를 도말하는 자니 기억지 아니하리라\n(4)여호와의 손이 짧아 구원치 못하심도 아니요", a:"시편 51편 17절", alt:["1번","(1)","시편 51:17","시편 51편"], desc:"(1)은 시편 51:17, 나머지는 이사야서", verse:"\"하나님이여 상하고 통회하는 마음을 주께서 멸시하지 아니하시리이다\" (시 51:17)" },
+  { id:35, cat:"성경지식", q:"공관복음 세 권의 이름을 쓰세요.", a:"마태복음, 마가복음, 누가복음", alt:["마태 마가 누가"], desc:"공관복음(Synoptic Gospels)", verse:"마태·마가·누가복음 — '함께 본다'는 뜻의 공관(共觀)복음" },
+  { id:36, cat:"성경지식", q:"사도바울의 옥중서신은 네 개입니다. 모두 쓰세요.", a:"에베소서, 빌립보서, 골로새서, 빌레몬서", alt:["에베소서 빌립보서 골로새서 빌레몬서"], desc:"옥중서신 4권", verse:"에베소서·빌립보서·골로새서·빌레몬서" },
+  { id:37, cat:"인물퀴즈", q:"나의 이름은 '하나님의 강한 자'라는 뜻이며 천사장으로 다니엘, 사가랴, 마리아에게 하나님의 목시를 전하였습니다. 나는 누구일까요?", a:"가브리엘", desc:"천사장 가브리엘", verse:"\"나는 하나님 앞에 서 있는 가브리엘이라\" (눅 1:19)" },
+  { id:38, cat:"인물퀴즈", q:"나의 이름은 '뿔'이라는 뜻이며 로마 군인 가이사야 수비대의 백부장으로, 이방인이었으나 하나님을 경외하였으며 베드로를 통해 온 집안이 세례를 받았습니다. 나는 누구일까요?", a:"고넬료", desc:"사도행전 10장", verse:"\"그가 경건하여 온 집안과 더불어 하나님을 경외하며\" (행 10:2)" },
+  { id:39, cat:"인물퀴즈", q:"나의 이름은 '주는 자'라는 뜻이며 다윗왕 때의 선지자로 다윗이 우리아의 아내를 간통하였을 때 꾸짖었습니다. 나는 누구일까요?", a:"나단", desc:"사무엘하 7장, 12장", verse:"\"여호와께서 나단을 다윗에게 보내시니\" (삼하 12:1)" },
+  { id:40, cat:"인물퀴즈", q:"나의 이름은 '하나님의 도움'이라는 뜻이며 베다니 지방에 살던 마리아와 마르다의 오빠로 죽은지 나흘만에 예수님께서 살려 주셨습니다. 나는 누구일까요?", a:"나사로", desc:"요한복음 11장", verse:"\"나는 부활이요 생명이니 나를 믿는 자는 죽어도 살겠고\" (요 11:25)" },
+  { id:41, cat:"인물퀴즈", q:"나의 이름은 '즐거움'이라는 뜻이며 수리아왕의 군대 장관으로 문둥병이 걸렸으나 엘리사를 찾아가서 고침을 받았습니다. 나는 누구일까요?", a:"나아만", desc:"열왕기하 5장", verse:"\"그는 큰 용사이나 나병환자더라\" (왕하 5:1)" },
+  { id:42, cat:"인물퀴즈", q:"나의 이름은 '휴식, 안위, 구원을 가져오다'라는 뜻이며 라멕의 아들로 대홍수 때 방주를 지어 구원을 받았습니다. 나는 누구일까요?", a:"노아", desc:"창세기 6~9장", verse:"\"노아는 의인이요 당대에 완전한 자라 그는 하나님과 동행하였으며\" (창 6:9)" },
+  { id:43, cat:"인물퀴즈", q:"나의 이름은 '빛나다'라는 뜻이며 바울의 동역자이며 의사로 누가복음과 사도행전의 저자로 알려져 있습니다. 이방인이었으며 할례를 받지 않았습니다. 나는 누구일까요?", a:"누가", desc:"골로새서 4:14", verse:"\"사랑을 받는 의사 누가와 또 데마가 너희에게 문안하느니라\" (골 4:14)" },
+  { id:44, cat:"인물퀴즈", q:"나의 이름은 '이긴 백성'이라는 뜻이며 바리새인으로 밤에 예수님께 나아와 중생의 비밀을 깨달았고, 아리마대 요셉과 함께 예수님의 시체를 장사지냈습니다. 나는 누구일까요?", a:"니고데모", desc:"요한복음 3장, 19:39", verse:"\"그 중의 한 사람 곧 전에 예수께 왔던 니고데모가\" (요 7:50)" },
+  { id:45, cat:"인물퀴즈", q:"나의 이름은 '하나님은 나의 재판장이시다'라는 뜻이며 하나냐·미사엘·아사랴와 함께 바벨론에 잡혀갔고 느부갓네살왕의 꿈을 해석하고 벨사살왕 때 제3치리자가 되었습니다. 나는 누구일까요?", a:"다니엘", desc:"다니엘서", verse:"\"다니엘은 뜻을 정하여 왕의 음식으로 자기를 더럽히지 아니하리라 하고\" (단 1:8)" },
+  { id:46, cat:"인물퀴즈", q:"나의 이름은 '사랑하는 자'라는 뜻이며 이스라엘의 2대 왕으로 물맷돌로 블레셋 대장 골리앗을 처죽인 일도 있습니다. 나는 누구일까요?", a:"다윗", desc:"사무엘상 16~17장", verse:"\"나는 만군의 여호와의 이름으로 네게 나아가노라\" (삼상 17:45)" },
+  { id:47, cat:"인물퀴즈", q:"나의 이름은 '의짓하다'라는 뜻이며 신약 제2복음서의 저자로 다락방이 있어 최후의 만찬 장소가 되었고 성령강림도 그 다락방에서 일어났습니다. 나는 누구일까요?", a:"마가", alt:["요한 마가"], desc:"사도행전 1:13", verse:"\"다 마음을 같이하여 오로지 기도에 힘쓰더라\" (행 1:14)" },
+  { id:48, cat:"인물퀴즈", q:"나의 이름은 '하나님의 선물'이라는 뜻이며 신약 제1복음서의 저자로 세리였으나 예수님의 부름을 받아 제자가 되었으며 레위라고도 불립니다. 나는 누구일까요?", a:"마태", desc:"마태복음 9:9", verse:"\"나를 따르라 하시니 일어나 따르니라\" (마 9:9)" },
+  { id:49, cat:"인물퀴즈", q:"나의 이름은 '의의 왕'이라는 뜻이며 아브라함 시대의 예루살렘 제사장으로 후대에 '나의 반차를 쫓은 영원한 제사장'이라 불리며 히브리서에서 그리스도의 우월성을 논할 때 언급됩니다. 나는 누구일까요?", a:"멜기세덱", desc:"창 14:18, 히브리서 7장", verse:"\"살렘 왕 멜기세덱이 떡과 포도주를 가지고 나왔으니\" (창 14:18)" },
+  { id:50, cat:"인물퀴즈", q:"나의 이름은 '물에서 건져냄'이라는 뜻이며 레위족속으로 120년을 살았는데 40년씩 바로의 궁·미디안 광야·이스라엘 해방 사역으로 나뉩니다. 나는 누구일까요?", a:"모세", desc:"출애굽기 2장", verse:"\"이는 내가 그를 물에서 건져내었음이라\" (출 2:10)" },
+  { id:51, cat:"인물퀴즈", q:"나의 이름은 '창던지는 사람'이라는 뜻이며 성경에 나타난 인물 중 가장 오래 산 사람입니다. 나는 누구일까요?", a:"므두셀라", desc:"창세기 5:27, 969세", verse:"\"므두셀라는 구백육십구 세를 살고 죽었더라\" (창 5:27)" },
+  { id:52, cat:"장소퀴즈", q:"예수님께서 제자들과 자주 오셔서 말씀을 나누시거나 휴식을 취하셨으며, 잡히시던 날 밤에도 이곳에서 기도하셨습니다. 이곳은 어디일까요?", a:"겟세마네", alt:["겟세마네 동산"], desc:"마태복음 26:36", verse:"\"내가 저기 가서 기도할 동안에 너희는 여기 앉아 있으라\" (마 26:36)" },
+  { id:53, cat:"장소퀴즈", q:"'지키다 혹은 거룩하다'라는 뜻이며 갈리리 호수 남서편에 위치한 성읍으로 요셉과 마리아가 살았던 곳입니다. 이곳은 어디일까요?", a:"나사렛", desc:"마태복음 2:23", verse:"\"나사렛이란 동네에 와서 사니\" (마 2:23)" },
+  { id:54, cat:"장소퀴즈", q:"'슬픔의 집'이라는 뜻이며 마르다·마리아·나사로의 동네로 예수님께서 나사로를 살리신 곳입니다. 이곳은 어디일까요?", a:"베다니", desc:"요한복음 11장", verse:"\"마리아와 그 자매 마르다가 사는 마을 베다니\" (요 11:1)" },
+  { id:55, cat:"장소퀴즈", q:"'은혜 혹은 친절의 집'이라는 뜻이며 행각 다섯이 있었고 예수님께서 38년된 병자를 고쳐주신 곳입니다. 이곳은 어디일까요?", a:"베데스다", alt:["베데스다 못"], desc:"요한복음 5:2~9", verse:"\"히브리 말로 베데스다라 하는 못이 있는데\" (요 5:2)" },
+  { id:56, cat:"장소퀴즈", q:"'떡집'이라는 뜻이며 다윗의 출생지이자 예수님의 출생지로, 미가서에서는 에브라다라 기록된 곳입니다. 이곳은 어디일까요?", a:"베들레헴", desc:"미가 5:2, 마태복음 2:1", verse:"\"베들레헴 에브라다야 너는 유다 족속 중에 작을지라도\" (미 5:2)" },
+  { id:57, cat:"장소퀴즈", q:"'하나님의 집'이라는 뜻이며 야곱이 에서를 피해 가다 꿈속에서 하나님을 만나 돌 기둥을 세운 곳입니다. 이곳은 어디일까요?", a:"벧엘", desc:"창세기 28:10~19", verse:"\"여호와께서 과연 여기 계시거늘 내가 알지 못하였도다\" (창 28:16)" },
+  { id:58, cat:"장소퀴즈", q:"'보냄을 받은 자'라는 뜻이며 예수님께서 소경의 눈에 진흙을 바르시고 여기서 씻으라 하여 고쳐주신 곳입니다. 이곳은 어디일까요?", a:"실로암", alt:["실로암 못"], desc:"요한복음 9:7", verse:"\"실로암 못에 가서 씻으라... 이에 가서 씻고 밝은 눈으로 왔더라\" (요 9:7)" },
+  { id:59, cat:"장소퀴즈", q:"여호와께서 아담과 하와를 두시기 위하여 만드신 동산으로 신약에서는 낙원이라고 나타납니다. 이곳은 어디일까요?", a:"에덴동산", alt:["에덴"], desc:"창세기 2:8~15", verse:"\"여호와 하나님이 동방의 에덴에 동산을 창설하시고\" (창 2:8)" },
+  { id:60, cat:"장소퀴즈", q:"'도움의 돌'이라는 뜻이며 이스라엘이 블레셋을 이긴 기념으로 사무엘 선지가 미스바와 센 사이에 세운 비석이자 지명입니다. 이곳은 어디일까요?", a:"에벤에셀", desc:"사무엘상 7:12", verse:"\"여호와께서 여기까지 우리를 도우셨다 하고 그 이름을 에벤에셀이라 하니라\" (삼상 7:12)" },
+  { id:61, cat:"장소퀴즈", q:"'향기의 도시·종려의 성읍'이라는 뜻이며 여호수아의 두 정탐꾼이 라합의 집에 머물렀고 이스라엘 군대가 성을 일곱 번 돌아 함락시킨 곳입니다. 이곳은 어디일까요?", a:"여리고", desc:"여호수아 6장", verse:"\"라합과 그의 아버지의 가족과 그에게 속한 모든 것을 살렸으므로\" (수 6:25)" },
+  { id:62, cat:"장소퀴즈", q:"'건조한 곳'이라는 뜻이며 시내산으로도 불리는 하나님의 산으로 모세가 불 붙은 떨기나무에서 하나님을 만난 곳입니다. 이곳은 어디일까요?", a:"호렙산", alt:["시내산","호렙산(시내산)"], desc:"출애굽기 3:1", verse:"\"하나님의 산 호렙에 이르매\" (출 3:1)" },
+  { id:63, cat:"장소퀴즈", q:"'갈대의 바다·붉은 바다'라는 뜻이며 모세의 인도로 출애굽 할 때 이스라엘 백성이 건넌 바다입니다. 이곳은 어디일까요?", a:"홍해", desc:"출애굽기 14장", verse:"\"이스라엘 자손이 바다 가운데를 육지로 행하고\" (출 14:29)" },
+];
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+const STORAGE_KEY = 'bible-app-v1';
+
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      cardOrder: cards.map(c=>c.id),
+      currentFilter, quizIndex, mode,
+      quizResults, flashKnown:[...flashKnown], flashDunno:[...flashDunno],
+      flashIndex, flashFlipped
+    }));
+  } catch(e){}
+}
+function load() {
+  try { const r=localStorage.getItem(STORAGE_KEY); return r?JSON.parse(r):null; } catch(e){return null;}
+}
+
+const _s = load();
+const idMap = Object.fromEntries(ALL_CARDS.map(c=>[c.id,c]));
+
+let cards = _s?.cardOrder
+  ? [..._s.cardOrder.map(id=>idMap[id]).filter(Boolean),
+     ...ALL_CARDS.filter(c=>!_s.cardOrder.includes(c.id))]
+  : [...ALL_CARDS];
+
+let currentFilter = _s?.currentFilter ?? '전체';
+let quizIndex     = _s?.quizIndex     ?? 0;
+let mode          = _s?.mode          ?? 'quiz';
+let quizResults   = _s?.quizResults   ?? {};
+let flashKnown    = new Set(_s?.flashKnown ?? []);
+let flashDunno    = new Set(_s?.flashDunno ?? []);
+let flashIndex    = _s?.flashIndex    ?? 0;
+let flashFlipped  = false;
+
+const categories = ['전체','성경지식','인물퀴즈','장소퀴즈'];
+
+function getActive() {
+  return currentFilter==='전체' ? cards : cards.filter(c=>c.cat===currentFilter);
+}
+
+// ══════════════════════════════════════════════════════
+//  NORMALISE & CHECK
+// ══════════════════════════════════════════════════════
+function norm(s) {
+  return s.trim().replace(/[,·•\/\(\)\s]+/g,' ').trim().toLowerCase();
+}
+function isCorrect(card, input) {
+  const ni = norm(input);
+  const alts = [card.a, ...(card.alt||[])].map(norm);
+  if (alts.some(c=>c===ni)) return true;
+  return alts.some(c => c.split(' ').filter(Boolean).every(t=>ni.includes(t)));
+}
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+function init() {
+  buildNav();
+  setMode(mode, true);
+  updateSidebarStats();
+}
+
+function buildNav() {
+  const el = document.getElementById('navItems');
+  el.innerHTML = '';
+  categories.forEach(cat => {
+    const count = cat==='전체' ? ALL_CARDS.length : ALL_CARDS.filter(c=>c.cat===cat).length;
+    const div = document.createElement('div');
+    div.className = 'nav-item' + (cat===currentFilter?' active':'');
+    div.innerHTML = `<span>${cat}</span><span class="nav-badge">${count}</span>`;
+    div.onclick = () => { currentFilter=cat; quizIndex=0; flashIndex=0; buildNav(); renderQuiz(); renderFlash(); updateSidebarStats(); save(); closeSidebar(); };
+    el.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  MODE SWITCHING
+// ══════════════════════════════════════════════════════
+function setMode(m, skipSave) {
+  mode = m;
+  ['quiz','flash','results'].forEach(id => {
+    const el = document.getElementById('mode-'+id);
+    const tab = document.getElementById('tab-'+id);
+    if (el)  el.style.display = id===m ? '' : 'none';
+    if (tab) tab.className = 'mode-tab' + (id===m?' active':'');
+  });
+  if (m==='quiz')    renderQuiz();
+  if (m==='flash')   renderFlash();
+  if (m==='results') renderResults();
+  if (!skipSave) save();
+}
+
+// ══════════════════════════════════════════════════════
+//  QUIZ MODE
+// ══════════════════════════════════════════════════════
+function renderQuiz() {
+  const fc = getActive();
+  if (!fc.length) return;
+  if (quizIndex >= fc.length) quizIndex = 0;
+  const card = fc[quizIndex];
+
+  const qNum  = document.getElementById('q-num');
+  const qCat  = document.getElementById('q-cat');
+  const qText = document.getElementById('q-text');
+  const inp   = document.getElementById('ans-input');
+  const aEmpty = document.getElementById('a-empty');
+  const aResult = document.getElementById('a-result');
+  const rowPre  = document.getElementById('action-row-pre');
+  const rowPost = document.getElementById('action-row-post');
+  const aPanel  = document.getElementById('a-panel');
+
+  if (qNum)  qNum.textContent  = `${quizIndex+1} / ${fc.length}`;
+  if (qCat)  qCat.textContent  = card.cat;
+  if (qText) qText.textContent = card.q;
+
+  if (inp) { inp.value = ''; inp.className = 'ans-input'; inp.disabled = false; inp.placeholder = '정답을 입력하세요...'; }
+  if (aEmpty)  aEmpty.style.display  = '';
+  if (aResult) aResult.className     = 'a-result';
+  if (rowPre)  rowPre.style.display  = '';
+  if (rowPost) rowPost.style.display = 'none';
+  if (aPanel)  aPanel.style.display  = window.innerWidth <= 768 ? 'none' : '';
+
+  setTimeout(()=>{ const i=document.getElementById('ans-input'); if(i) i.focus(); }, 100);
+  updateSidebarStats();
+}
+
+function submitAnswer() {
+  const fc = getActive();
+  if (!fc.length) return;
+  const card = fc[quizIndex];
+  if (!card) return;
+
+  const inp = document.getElementById('ans-input');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) { inp.focus(); return; }
+
+  const ok = isCorrect(card, val);
+  quizResults[card.id] = ok ? 'correct' : 'wrong';
+
+  inp.className = 'ans-input ' + (ok ? 'ok' : 'err');
+  inp.disabled = true;
+
+  const g = id => document.getElementById(id);
+
+  const aPanel = g('a-panel');
+  if (aPanel) aPanel.style.display = '';
+
+  const aEmpty = g('a-empty');
+  if (aEmpty) aEmpty.style.display = 'none';
+
+  const res = g('a-result');
+  if (res) res.className = 'a-result visible';
+
+  const st = g('a-status');
+  if (st) { st.textContent = ok ? '✓ 정답입니다!' : '✗ 틀렸습니다'; st.className = 'a-status ' + (ok ? 'ok' : 'err'); }
+
+  const aa = g('a-answer'); if (aa) aa.textContent = card.a;
+  const ad = g('a-desc');   if (ad) ad.textContent = card.desc || '';
+  const ve = g('a-verse');  if (ve) { ve.textContent = card.verse || ''; ve.style.display = card.verse ? '' : 'none'; }
+
+  const rowPre  = g('action-row-pre');  if (rowPre)  rowPre.style.display  = 'none';
+  const rowPost = g('action-row-post'); if (rowPost) rowPost.style.display = '';
+
+  updateSidebarStats();
+  save();
+}
+
+function nextQuestion() {
+  const fc = getActive();
+  const allDone = fc.every(c=>quizResults[c.id]);
+  if (allDone) { showComplete(); return; }
+
+  let next = -1;
+  for (let i=quizIndex+1;i<fc.length;i++) { if(!quizResults[fc[i].id]){next=i;break;} }
+  if (next===-1) for (let i=0;i<=quizIndex;i++) { if(!quizResults[fc[i].id]){next=i;break;} }
+  if (next===-1) { showComplete(); return; }
+
+  quizIndex = next;
+  save();
+  renderQuiz();
+  document.getElementById('content').scrollTo({top:0,behavior:'smooth'});
+}
+
+function skipQuestion() {
+  const fc = getActive();
+  const card = fc[quizIndex];
+  if (!quizResults[card.id]) { quizResults[card.id]='skip'; updateSidebarStats(); save(); }
+  nextQuestion();
+}
+
+function showHint() {
+  const fc = getActive();
+  const card = fc[quizIndex];
+  const a = card.a;
+  toast(`💡 힌트: ${a[0]}${'_'.repeat(Math.max(0,a.length-1))} (${a.length}자)`);
+}
+
+function onKey(e) { if(e.key==='Enter') submitAnswer(); }
+
+function showComplete() {
+  const fc = getActive();
+  const ids = fc.map(c=>c.id);
+  const correct = ids.filter(id=>quizResults[id]==='correct').length;
+  const wrong   = ids.filter(id=>quizResults[id]==='wrong').length;
+  const skip    = ids.filter(id=>quizResults[id]==='skip').length;
+  const pct = Math.round(correct/fc.length*100);
+  const g = id => document.getElementById(id);
+  if (g('co-score')) g('co-score').textContent = pct+'점';
+  if (g('co-sub'))   g('co-sub').textContent   = `정답 ${correct}개 · 오답 ${wrong}개 · 건너뜀 ${skip}개\n전체 ${fc.length}문제 완료!`;
+  if (g('complete-overlay')) g('complete-overlay').classList.add('visible');
+}
+
+// ══════════════════════════════════════════════════════
+//  FLASHCARD MODE
+// ══════════════════════════════════════════════════════
+function renderFlash() {
+  const fc = getActive();
+  if (!fc.length) return;
+  if (flashIndex >= fc.length) flashIndex = 0;
+  const card = fc[flashIndex];
+  const g = id => document.getElementById(id);
+
+  if (g('f-num'))  g('f-num').textContent  = `${flashIndex+1} / ${fc.length}`;
+  if (g('f-cat'))  g('f-cat').textContent  = card.cat;
+  if (g('f-q'))    g('f-q').textContent    = card.q;
+  if (g('f-a'))    g('f-a').textContent    = card.a;
+  if (g('f-desc')) g('f-desc').textContent = card.desc||'';
+  const ve = g('f-verse');
+  if (ve) { ve.textContent = card.verse||''; ve.style.display = card.verse?'':'none'; }
+
+  const inner = g('card-inner');
+  if (inner) { flashFlipped = false; inner.classList.remove('flipped'); }
+  if (g('flash-front-ctrl')) g('flash-front-ctrl').style.display = '';
+  if (g('flash-back-ctrl'))  g('flash-back-ctrl').style.display  = 'none';
+
+  updateFlashStats();
+}
+
+function flipCard() {
+  flashFlipped = !flashFlipped;
+  const g = id => document.getElementById(id);
+  if (g('card-inner')) g('card-inner').classList.toggle('flipped', flashFlipped);
+  if (g('flash-front-ctrl')) g('flash-front-ctrl').style.display = flashFlipped ? 'none' : '';
+  if (g('flash-back-ctrl'))  g('flash-back-ctrl').style.display  = flashFlipped ? '' : 'none';
+}
+
+function flashNav(dir, newIndex) {
+  const g = id => document.getElementById(id);
+  const inner = g('card-inner');
+  const fc = getActive();
+  flashIndex = newIndex;
+  save();
+  if (flashFlipped && inner) {
+    inner.classList.remove('flipped');
+    flashFlipped = false;
+    if (g('flash-back-ctrl'))  g('flash-back-ctrl').style.display  = 'none';
+    if (g('flash-front-ctrl')) g('flash-front-ctrl').style.display = '';
+    const card = fc[flashIndex];
+    if (card) {
+      setTimeout(()=>{
+        if (g('f-q'))   g('f-q').textContent   = card.q;
+        if (g('f-num')) g('f-num').textContent = `${flashIndex+1} / ${fc.length}`;
+        if (g('f-cat')) g('f-cat').textContent = card.cat;
+      }, 80);
+      setTimeout(()=>{
+        if (g('f-a'))    g('f-a').textContent    = card.a;
+        if (g('f-desc')) g('f-desc').textContent = card.desc||'';
+        const ve = g('f-verse');
+        if (ve) { ve.textContent = card.verse||''; ve.style.display = card.verse?'':'none'; }
+      }, 620);
+    }
+  } else { renderFlash(); }
+}
+
+function flashPrev() {
+  const fc=getActive();
+  flashNav(-1,(flashIndex-1+fc.length)%fc.length);
+}
+function flashNext() {
+  const fc=getActive();
+  flashNav(1,(flashIndex+1)%fc.length);
+}
+
+function markFlash(known) {
+  const fc=getActive();
+  const card=fc[flashIndex];
+  if(known){flashKnown.add(card.id);flashDunno.delete(card.id);}
+  else{flashDunno.add(card.id);flashKnown.delete(card.id);}
+  updateFlashStats();
+  save();
+
+  const allDone=fc.every(c=>flashKnown.has(c.id)||flashDunno.has(c.id));
+  if(allDone){toast('🎉 모든 카드 완료!');return;}
+
+  // next unmarked
+  let next=-1;
+  for(let i=flashIndex+1;i<fc.length;i++){if(!flashKnown.has(fc[i].id)&&!flashDunno.has(fc[i].id)){next=i;break;}}
+  if(next===-1) for(let i=0;i<flashIndex;i++){if(!flashKnown.has(fc[i].id)&&!flashDunno.has(fc[i].id)){next=i;break;}}
+  if(next===-1) next=(flashIndex+1)%fc.length;
+
+  flashNav(0, next);
+}
+
+function updateFlashStats() {
+  const fc=getActive();
+  const ok=fc.filter(c=>flashKnown.has(c.id)).length;
+  const err=fc.filter(c=>flashDunno.has(c.id)).length;
+  const g = id => document.getElementById(id);
+  if (g('fs-ok'))  g('fs-ok').textContent  = ok;
+  if (g('fs-err')) g('fs-err').textContent = err;
+  if (g('fs-rem')) g('fs-rem').textContent = fc.length-ok-err;
+}
+
+// ══════════════════════════════════════════════════════
+//  RESULTS MODE
+// ══════════════════════════════════════════════════════
+function renderResults() {
+  const fc = getActive();
+  const grid = document.getElementById('results-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  fc.forEach((card,i) => {
+    const r = quizResults[card.id];
+    const statusLabel = r==='correct'?'✓ 정답' : r==='wrong'?'✗ 오답' : r==='skip'?'→ 건너뜀' : '미응답';
+    const cls = r==='correct'?'ok' : r==='wrong'?'err' : r==='skip'?'skip' : 'none';
+    const div = document.createElement('div');
+    div.className = `r-card ${cls}`;
+    div.innerHTML = `
+      <div class="r-card-meta">
+        <span class="r-card-num">${i+1}번</span>
+        <span class="r-card-status">${statusLabel}</span>
+      </div>
+      <div class="r-card-q">${card.q}</div>
+      <div class="r-card-a">${card.a}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  SIDEBAR STATS
+// ══════════════════════════════════════════════════════
+function updateSidebarStats() {
+  const fc = getActive();
+  const ids = fc.map(c=>c.id);
+  const correct = ids.filter(id=>quizResults[id]==='correct').length;
+  const wrong   = ids.filter(id=>quizResults[id]==='wrong').length;
+  const done    = ids.filter(id=>quizResults[id]).length;
+  const remain  = fc.length - done;
+  const pct     = fc.length ? Math.round(done/fc.length*100) : 0;
+
+  const s = id => document.getElementById(id);
+  if (s('ss-correct')) s('ss-correct').textContent = correct;
+  if (s('ss-wrong'))   s('ss-wrong').textContent   = wrong;
+  if (s('ss-remain'))  s('ss-remain').textContent  = remain;
+  if (s('ss-total'))   s('ss-total').textContent   = fc.length;
+  if (s('sp-fill'))    s('sp-fill').style.width     = pct+'%';
+  if (s('sp-label'))   s('sp-label').textContent   = `${done} / ${fc.length} 완료`;
+  if (s('sp-pct'))     s('sp-pct').textContent      = pct+'%';
+}
+
+// ══════════════════════════════════════════════════════
+//  SHUFFLE / RESET
+// ══════════════════════════════════════════════════════
+function shuffleCards() {
+  for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]];}
+  quizIndex=0; flashIndex=0;
+  save(); renderQuiz(); renderFlash(); toast('🔀 카드를 섞었습니다');
+}
+
+function resetAll() {
+  quizResults={}; flashKnown.clear(); flashDunno.clear();
+  quizIndex=0; flashIndex=0; cards=[...ALL_CARDS];
+  try{localStorage.removeItem(STORAGE_KEY);}catch(e){}
+  document.getElementById('complete-overlay').classList.remove('visible');
+  buildNav(); setMode('quiz',true); updateSidebarStats(); toast('↺ 초기화 완료');
+}
+
+// ══════════════════════════════════════════════════════
+//  UI HELPERS
+// ══════════════════════════════════════════════════════
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('visible');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('visible');
+}
+
+let _toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>el.classList.remove('show'), 2000);
+}
+
+// ── PWA SERVICE WORKER ──
+if ('serviceWorker' in navigator && location.protocol !== 'blob:' && location.hostname !== '') {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+// ── BOOT: DOM 완전히 준비된 후 실행 ──
+function boot() {
+  try {
+    init();
+  } catch(e) {
+    try { localStorage.removeItem(STORAGE_KEY); } catch(_) {}
+    try {
+      cards = [...ALL_CARDS];
+      quizIndex = 0; flashIndex = 0; mode = 'quiz';
+      quizResults = {}; flashKnown = new Set(); flashDunno = new Set();
+      currentFilter = '전체';
+      init();
+    } catch(e2) {
+      document.body.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+          height:100vh;background:#0d1117;color:#e8e0d0;font-family:sans-serif;gap:16px;padding:24px;text-align:center;">
+          <div style="font-size:40px">⚠️</div>
+          <div style="font-size:18px;color:#e8c97a;font-weight:bold">앱 로드 오류</div>
+          <div style="font-size:13px;color:#6b6560;max-width:320px;line-height:1.6">${e2.message}</div>
+          <button onclick="try{localStorage.clear();}catch(e){}location.reload()"
+            style="margin-top:8px;padding:14px 32px;border-radius:12px;border:none;
+            background:#c9a84c;color:#0d1117;font-size:15px;font-weight:700;cursor:pointer;">
+            초기화 후 재시작
+          </button>
+        </div>`;
+    }
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+</script>
+</body>
+</html>
