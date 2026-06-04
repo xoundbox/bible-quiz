@@ -1017,25 +1017,35 @@ function showHint() {
   toast(`💡 힌트: ${a[0]}${'_'.repeat(Math.max(0,a.length-1))} (${a.length}자)`);
 }
 
-function onKey(e) {
-  if (e.key !== 'Enter') return;
-  const rowPost = document.getElementById('action-row-post');
-  if (rowPost && rowPost.style.display !== 'none') {
-    nextQuestion();
-  } else {
-    submitAnswer();
-  }
-}
+function onKey(e) {}   // kept for legacy, not used
+function onRetryKey(e) {}  // kept for legacy, not used
 
-function onRetryKey(e) {
+// Global Enter handler — works even after input is disabled
+document.addEventListener('keydown', function(e) {
   if (e.key !== 'Enter') return;
-  const rowPost = document.getElementById('retry-row-post');
-  if (rowPost && rowPost.style.display !== 'none') {
-    nextRetry();
-  } else {
-    submitRetry();
+
+  // Quiz mode
+  if (mode === 'quiz') {
+    const rowPost = document.getElementById('action-row-post');
+    if (rowPost && rowPost.style.display !== 'none') {
+      nextQuestion();
+    } else {
+      submitAnswer();
+    }
+    return;
   }
-}
+
+  // Retry mode
+  if (mode === 'retry') {
+    const rowPost = document.getElementById('retry-row-post');
+    if (rowPost && rowPost.style.display !== 'none') {
+      nextRetry();
+    } else {
+      submitRetry();
+    }
+    return;
+  }
+});
 
 function showComplete() {
   const fc = getActive();
